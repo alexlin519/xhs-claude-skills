@@ -1,3 +1,11 @@
+todo:
+imorve 
+i fork this branch bc i want to custimize it, i need my obsidian note to be 1 have the summary of the paper / video summary, 
+2 put the initinal orignla text (either from pic or from video) to the note
+3 i dont need the image, instead i want the text ocr form the picture
+
+so improve the cdoe, tell me to replace what file text to what stuff
+
 <div align="center">
 
 # 📕 小红书转 Obsidian
