@@ -1,0 +1,16 @@
+{
+  "name": "chenxiachan-xhs-claude-skills",
+  "owner": {
+    "name": "chenxiachan"
+  },
+  "metadata": {
+    "description": "小红书转 Obsidian 插件合集"
+  },
+  "plugins": [
+    {
+      "name": "rednote-to-obsidian",
+      "source": "./",
+      "description": "把小红书帖子变成简洁的 Obsidian 笔记，支持视频转录"
+    }
+  ]
+}

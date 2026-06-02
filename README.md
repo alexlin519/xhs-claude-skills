@@ -1,11 +1,3 @@
-todo:
-imorve 
-i fork this branch bc i want to custimize it, i need my obsidian note to be 1 have the summary of the paper / video summary, 
-2 put the initinal orignla text (either from pic or from video) to the note
-3 i dont need the image, instead i want the text ocr form the picture
-
-so improve the cdoe, tell me to replace what file text to what stuff
-
 <div align="center">
 
 # 📕 小红书转 Obsidian
@@ -19,7 +11,7 @@ so improve the cdoe, tell me to replace what file text to what stuff
 
 ---
 
-一个 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 插件，把小红书帖子一键提取为简洁的 [Obsidian](https://obsidian.md) 笔记。支持图文和视频帖子——视频会自动下载并用本地 whisper 做语音转录。不需要 MCP 服务、无头浏览器或任何后端，只用 cookies + HTTP + 本地模型。
+一个 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 插件，把小红书帖子一键提取为简洁的 [Obsidian](https://obsidian.md) 笔记。每条笔记是**纯文字**的「摘要 + 原文」：图文帖子用 Claude 视觉对图片做 OCR 取出原文，视频帖子用本地 whisper 做语音转录——**不保存也不嵌入任何图片/视频**。不需要 MCP 服务、无头浏览器或任何后端，只用 cookies + HTTP + 本地模型。
 
 ---
 
@@ -60,23 +52,21 @@ so improve the cdoe, tell me to replace what file text to what stuff
 
 | 命令 | 说明 |
 |:-----|:-----|
-| `/xhs <链接>` | 📄 提取单个帖子 — 文字、图片、视频转录 |
+| `/xhs <链接>` | 📄 提取单个帖子 — 文字、图片 OCR、视频转录 |
 | `/xhs-batch <链接列表>` | 📦 批量提取多个帖子 |
 | `/xhs-analyze [关键词]` | 🔍 分析已保存的帖子 — 总结、对比、发现模式 |
 
 ### 📂 输出
 
-笔记按日期排序，直接放在 Obsidian vault 的 `xhs/` 文件夹下：
+笔记按日期排序，直接放在 Obsidian vault 的 `xhs/` 文件夹下（**纯 .md，无媒体文件夹**）：
 
 ```
 xhs/
 ├── 2026-03-22 YY方法论解析.md
-├── 2026-03-29 ZZ技术突破.md
-├── img/
-└── video/
+└── 2026-03-29 ZZ技术突破.md
 ```
 
-每条笔记是**决策工具**——扫一眼决定深挖还是跳过：
+每条笔记是**决策工具**——扫一眼决定深挖还是跳过，并保留原文存档：
 
 ```markdown
 # 一句话洞察                          ← 判断，不是描述
@@ -86,8 +76,11 @@ xhs/
 **与我的关联：** 为什么跟我有关。
 **值得深挖吗：** 是/否 + 理由。
 
-> [!tip]- 详情                         ← 默认折叠
-> 结构化内容...
+## 摘要                                ← 3-5 句话总结
+讲了什么、核心方法/结论。
+
+> [!quote]- 原文                       ← 默认折叠：图片 OCR / 视频转录全文
+> 帖子的原始文字...
 
 > [!info]- 笔记属性                     ← 默认折叠
 > 来源 · 日期 · 互动 · 标签
@@ -112,11 +105,15 @@ xhs/
  └────┬──────┬──────┬──────┘
       ▼      ▼      ▼
     文字    图片    视频
-                     │
-                curl → ffmpeg → mlx-whisper
-                     │
-                     ▼
-              Obsidian 笔记
+             │       │
+       Claude 视觉   curl → ffmpeg → mlx-whisper
+        OCR 取原文        语音转录取原文
+             │       │
+             ▼       ▼
+         摘要 + 原文（纯文字）
+             │
+             ▼
+        Obsidian 笔记
 ```
 
 ---
@@ -126,7 +123,7 @@ xhs/
 | 配置项 | 默认值 | 说明 |
 |:------|:------|:-----|
 | Cookies | `~/cookies.json` | 小红书认证 |
-| 输出目录 | `~/Documents/Obsidian Vault/xhs` | Obsidian vault 路径 |
+| 输出目录 | `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/龍行天下/xhs` | Obsidian vault 路径 |
 
 路径不同时编辑 `skills/xhs/SKILL.md` 中的常量定义。
 

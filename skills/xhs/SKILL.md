@@ -1,6 +1,6 @@
 ---
 name: xhs
-description: 提取小红书帖子内容（文字、图片、视频转录），整理为 Markdown 并保存
+description: 提取小红书帖子内容（文字、图片 OCR、视频转录），生成"摘要 + 原文"的 Obsidian 笔记
 user-invocable: true
 argument-hint: <小红书链接>
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
@@ -10,7 +10,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ## 常量定义
 - Cookies 文件: `~/cookies.json`（从 Chrome 导出的小红书 cookies）
-- Obsidian 保存目录: `~/Documents/Obsidian Vault/xhs`
+- Obsidian 保存目录: `/Users/alexlin/Library/Mobile Documents/iCloud~md~obsidian/Documents/龍行天下/xhs`
 - Whisper 模型: `mlx-community/whisper-large-v3-turbo`
 
 ## 输入
@@ -69,34 +69,52 @@ data = json.loads(raw)
 
 如果请求失败（被重定向到 404/错误页），说明 cookies 过期，提示用户按步骤 0 重新导出。
 
-### 步骤 3：视频转录（仅视频帖子）
-如果帖子 type 为 video，执行以下子步骤：
+### 步骤 3：提取原文（图文 OCR / 视频转录）
+根据帖子 type 分两种情况，目标都是得到帖子的**原文文字**（既不嵌入也不保存图片）：
 
-#### 3a. 提取视频 URL
+#### 情况 A：图文帖子（type 为 normal / image）
+小红书图文帖子的正文往往写在图片里（截图、手写笔记、长图文），需要 OCR 把文字提取出来：
+
+1. 从 `note['imageList']` 中按顺序取每张图片的 `urlDefault`
+2. 下载到临时文件（仅临时，不进 Obsidian）：
+```bash
+curl -L -o /tmp/xhs_{post_id}_{n}.jpg -H "Referer: https://www.xiaohongshu.com/" <图片URL>
+```
+3. **用 Read 工具逐张打开临时图片**，让 Claude 用视觉直接识别图中文字（无需安装任何 OCR 依赖）
+4. 把 `desc`（帖子描述）与各图 OCR 文本**按图片顺序合并**为完整原文；只做轻度清理（去掉 `#xxx[话题]#` 标记、明显的水印/广告语），不改写、不缩写
+5. 清理临时文件：
+```bash
+rm -f /tmp/xhs_{post_id}_*.jpg
+```
+
+#### 情况 B：视频帖子（type 为 video）
+保留 whisper 语音转录作为原文：
+
+##### 3b-1. 提取视频 URL
 从步骤 2 获取的数据中解析视频流：
 ```
 note['video']['media']['stream'] -> 按 h264 > h265 > av1 优先级取第一个的 masterUrl
 ```
 
-#### 3b. 下载视频并提取音频
+##### 3b-2. 下载视频并提取音频
 ```bash
 curl -L -o /tmp/xhs_{post_id}.mp4 -H "Referer: https://www.xiaohongshu.com/" <视频URL>
 ffmpeg -y -i /tmp/xhs_{post_id}.mp4 -vn -acodec pcm_s16le -ar 16000 -ac 1 /tmp/xhs_{post_id}.wav
 ```
 
-#### 3c. 语音转录
+##### 3b-3. 语音转录
 ```python
 import mlx_whisper
 result = mlx_whisper.transcribe("/tmp/xhs_{post_id}.wav",
     path_or_hf_repo="mlx-community/whisper-large-v3-turbo", language="zh", verbose=False)
 ```
 
-#### 3d. 清理转录文本
+##### 3b-4. 清理转录文本
 - 去除尾部重复字符（背景音乐噪音）
 - 按语义断句，添加标点和段落
 - 如有步骤/要点结构，用 Markdown 格式化
 
-#### 3e. 清理临时文件
+##### 3b-5. 清理临时文件
 ```bash
 rm -f /tmp/xhs_{post_id}.mp4 /tmp/xhs_{post_id}.wav
 ```
@@ -106,7 +124,7 @@ rm -f /tmp/xhs_{post_id}.mp4 /tmp/xhs_{post_id}.wav
 - 文件名格式：`{发布日期} {短标题}.md`，短标题不超过15个字，是核心洞察的极简概括
 - 日期前缀确保按时间排序
 - 不创建子目录，所有帖子 md 直接放在 xhs 文件夹下
-- 媒体文件统一放在 `<Obsidian 保存目录>/img/` 或 `<Obsidian 保存目录>/video/`
+- **不保存任何图片/视频文件**，也不嵌入图片——笔记只含文字（摘要 + 原文）
 
 **写作风格：Peter Thiel 式——直接、反直觉、一句话给判断。笔记是决策工具，不是知识库。用户扫一眼就能决定：深挖还是跳过。**
 
@@ -124,12 +142,15 @@ user 和 project 类型记忆）了解用户背景、研究方向和当前工作
 
 **值得深挖吗：** 是/否。一句话理由。
 
-> [!tip]- 详情
-> 帖子核心内容的结构化整理（折叠状态，点开才看到）：
-> - 从 desc 和视频转录中提炼，清理 `#xxx[话题]#` 标记
-> - 按逻辑结构分节，保留关键数据和结论
-> - 图片用 `![图N](urlDefault)` 嵌入
-> - 视频帖子在此处放整理后的转录内容
+## 摘要
+对这篇帖子 / 视频的 3-5 句话摘要：讲了什么、核心方法或结论是什么。
+这是判断"要不要深挖"的依据，比上面的一句话洞察更完整，但仍然精炼。
+
+> [!quote]- 原文
+> 帖子的**原始文字**（折叠状态，点开才看到），用于存档和精读：
+> - 图文帖子：`desc` + 各图 OCR 文本，按图片顺序合并
+> - 视频帖子：整理后的语音转录全文
+> - 只做轻度清理（去 `#xxx[话题]#` 标记、断句加标点），**不改写、不缩写**，保留原意
 
 > [!info]- 笔记属性
 > - **来源**: 小红书 · 作者名
@@ -142,6 +163,6 @@ user 和 project 类型记忆）了解用户背景、研究方向和当前工作
 ```
 
 关键约束：
-- 折叠区域外的可见内容**不超过 6 行**
+- 折叠区域外的可见内容（洞察 + 关联 + 值得深挖 + 摘要）保持精炼
 - 标题必须是洞察/判断，不是"XX帖子的总结"
-- 图片使用 `urlDefault` 字段的 URL
+- 笔记**纯文字**：不嵌入、不下载图片；图文帖子的内容通过 OCR 进入「原文」折叠区
